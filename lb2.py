@@ -97,12 +97,14 @@ class iplb (object):
   def __init__ (self, connection, service_ip, servers = []):
     self.service_ip = IPAddr(service_ip)
     self.servers = [IPAddr(a) for a in servers]
-    self.con = connection
+    self.connection = connection
+    connection.addListener(self)
+    self.mac_to_port = {}
     #self.mac = self.con.eth_addr
     self.live_servers = {"00:00:00:11:22:33"} # IP -> MAC,port
 
     try:
-      self.log = log.getChild(dpidToStr(self.con.dpid))
+      self.log = log.getChild(dpidToStr(self.connection.dpid))
     except:
       # Be nice to Python 2.6 (ugh)
       self.log = log
@@ -173,7 +175,7 @@ class iplb (object):
     msg.data = e.pack()
     msg.actions.append(of.ofp_action_output(port = of.OFPP_FLOOD))
     msg.in_port = of.OFPP_NONE
-    self.con.send(msg)
+    self.connection.send(msg)
 
     self.outstanding_probes[server] = time.time() + self.arp_timeout
 
@@ -210,7 +212,7 @@ class iplb (object):
       if event.ofp.buffer_id is not None:
         # Kill the buffer
         msg = of.ofp_packet_out(data = event.ofp)
-        self.con.send(msg)
+        self.connection.send(msg)
       return None
 
     tcpp = packet.find('tcp')
